@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#FFF8F2">
-<title>혜진의 하루</title>
+<title>보람찬 하루</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
@@ -69,10 +69,12 @@
   .today .badge { background: #fff; }
   .badge:empty { visibility: hidden; }
   .hint { text-align: center; margin-top: 14px; }
+  .warn { margin: 0 0 12px; padding: 14px; border-radius: 14px; background: #FDECEA; color: var(--red); font-size: 18px; line-height: 1.5; }
 </style>
 </head>
 <body>
 <main>
+  <p id="inapp" class="warn" hidden>⚠️ 이 화면에서는 나갔다 오면 기록이 사라질 수 있어요.<br>오른쪽 위 <b>⋮ 메뉴 → "다른 브라우저로 열기"</b>를 눌러 Chrome이나 삼성 인터넷에서 열어주세요.</p>
   <button id="month-tab" class="month-tab" aria-label="달력 보기"></button>
 
   <!-- 하루 화면 -->
@@ -118,6 +120,15 @@
 <script type="module">
 import { ymd, toDate, addDays, daysBetween, isDone, dayRoutines, dayTodos, sortItems, migrate } from './logic.js';
 import { MESSAGES } from './messages.js';
+
+// 카톡·밴드 등 앱 안의 브라우저는 나갔다 오면 저장한 기록이 지워질 수 있다.
+// 카톡이면 폰 기본 브라우저로 바로 다시 열고, 나머지는 안내 문구를 띄운다.
+if (/KAKAOTALK|NAVER|Instagram|FBAN|FBAV|BAND|Line\//i.test(navigator.userAgent)) {
+  document.querySelector('#inapp').hidden = false;
+  if (/KAKAOTALK/i.test(navigator.userAgent)) location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(location.href);
+}
+// 저장 공간이 부족해도 브라우저가 기록을 지우지 않게 요청 (홈 화면에 추가한 앱이면 보통 허용됨)
+navigator.storage?.persist?.();
 
 // 데이터는 이 폰의 브라우저에만 저장된다.
 // ponytail: 지난 기록을 지우지 않음 — 하루 몇 개씩이면 수십 년 써도 저장 한도(5MB)에 안 닿음.
