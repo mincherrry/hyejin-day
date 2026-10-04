@@ -52,7 +52,10 @@
   .done .check { background: var(--orange); border-color: var(--orange); }
   .title { display: block; font-size: 22px; font-weight: 500; word-break: keep-all; overflow-wrap: anywhere; }
   .done .title { color: #B09A88; text-decoration: line-through; }
-  .late { display: block; font-size: 17px; color: var(--red); margin-top: 2px; }
+  .late, .meta { display: block; font-size: 17px; color: var(--red); margin-top: 2px; }
+  .meta { color: var(--sub); }
+  .time-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 19px; font-weight: 600; color: var(--orange-dark); }
+  .time-row input { flex: 1; font-size: 20px; padding: 8px 12px; }
   .postpone { flex: none; padding: 10px 12px; border-radius: 10px; background: var(--orange-soft); color: var(--orange-dark); font-size: 17px; font-weight: 700; }
   .del { flex: none; width: 48px; height: 48px; color: #B09A88; font-size: 22px; }
   .later { font-size: 18px; color: var(--sub); margin: 6px 0 0; }
@@ -91,6 +94,7 @@
 
     <div id="add-card" class="card">
       <input id="text" placeholder="무엇을 할까요?" autocomplete="off" aria-label="추가할 내용">
+      <label id="time-row" class="time-row" hidden>⏰ 알림 시간 <input id="time" type="time"></label>
       <div class="add">
         <button type="button" class="routine" data-type="routine">+ 매일 루틴</button>
         <button type="button" class="todo" data-type="todo" id="add-todo">+ 할 일</button>
@@ -153,9 +157,16 @@ if (!seeded) {
   try { localStorage.setItem(KEY, JSON.stringify(items)); localStorage.setItem('seeded', '1'); } catch {}
 }
 
+// 안드로이드 앱(보람찬 하루 앱) 안에서 열렸으면 알림 시간을 받고, 저장할 때마다 앱에 목록을 보내 알림을 예약하게 한다.
+const app = window.ReactNativeWebView;
+const syncApp = () => app?.postMessage(JSON.stringify(items));
+$('#time-row').hidden = !app;
+syncApp(); // 앱을 열 때마다 알림을 다시 예약 (앱은 7일치만 예약해 둠)
+
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(items)); }
   catch { alert('저장하지 못했어요. 인터넷 브라우저의 "비밀 모드"가 아닌지 확인해 주세요.'); }
+  syncApp();
   render();
 }
 
@@ -172,10 +183,12 @@ function toggle(item) {
 function add(type) {
   const title = $('#text').value.trim();
   if (!title) { alert('내용을 먼저 적어주세요'); return $('#text').focus(); }
+  const time = $('#time').value || null;
   items.push(type === 'routine'
-    ? { id: Date.now(), type, title, date: view, doneDates: [] }
-    : { id: Date.now(), type, title, date: view, doneOn: null });
+    ? { id: Date.now(), type, title, time, date: view, doneDates: [] }
+    : { id: Date.now(), type, title, time, date: view, doneOn: null });
   $('#text').value = '';
+  $('#time').value = '';
   save();
 }
 
@@ -186,6 +199,7 @@ function remove(item) {
 }
 
 const fmtDate = (s) => { const d = toDate(s); return `${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEK[d.getDay()]})`; };
+const fmtTime = (t) => { const [h, m] = t.split(':').map(Number); return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(m).padStart(2, '0')}`; };
 const cheerFor = (day) => MESSAGES[((daysBetween('2026-01-01', day) % MESSAGES.length) + MESSAGES.length) % MESSAGES.length];
 
 const el = (tag, attrs = {}, ...kids) => {
@@ -207,6 +221,7 @@ function row(item) {
       el('span', { class: 'check' }, done ? '✓' : ''),
       el('span', {},
         el('span', { class: 'title' }, item.title),
+        item.time && el('span', { class: 'meta' }, `⏰ ${fmtTime(item.time)}`),
         late > 0 && el('span', { class: 'late' }, late === 1 ? '어제부터' : `${late}일 전부터`))),
     item.type === 'todo' && !done && view === today &&
       el('button', { class: 'postpone', onclick: () => update(item.id, (i) => ({ ...i, date: addDays(today, 1) })) }, '내일로'),
